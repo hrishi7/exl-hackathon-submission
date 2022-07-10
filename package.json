@@ -1,0 +1,38 @@
+{
+  "name": "cloud-agnostic-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "^12.10.0",
+    "@google-cloud/storage": "^6.1.0",
+    "aws-sdk": "^2.1157.0",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.0",
+    "colors": "^1.4.0",
+    "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "express-rate-limit": "^6.4.0",
+    "helmet": "^5.1.0",
+    "hpp": "^0.2.3",
+    "into-stream": "^3.1.0",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^5.7.7",
+    "morgan": "^1.9.1",
+    "multer": "^1.4.5-lts.1",
+    "randomstring": "^1.2.2",
+    "xss": "^1.0.13",
+    "zlib": "^1.0.5"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.4"
+  },
+  "engine": {
+    "node": "10.17.*"
+  }
+}
