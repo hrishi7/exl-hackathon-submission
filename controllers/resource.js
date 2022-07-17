@@ -1,15 +1,21 @@
 const Resource = require("../models/Resource");
-const CloudCrediential = require("../models/CloudCrediential");
+const CloudCredential = require("../models/CloudCredential");
 const TemporaryUrl = require("../models/TemporaryUrl");
 
-const { uploadFileToS3, downloadFileFromS3 } = require("../utils/s3");
+const {
+  uploadFileToS3,
+  downloadFileFromS3,
+  deleteFileFromS3,
+} = require("../utils/s3");
 
 const {
   uploadDocumentToAzure,
   downloadDocumentFromAzure,
+  deleteDocumentFromAzure,
 } = require("../utils/azure");
 
-const { uploadToGCS, downloadFromGCS } = require("../utils/gcs");
+const { uploadToGCS, downloadFromGCS, deleteFromGCS } = require("../utils/gcs");
+const { getDecryptedData } = require("../controllers/cloudCredential");
 
 const mongoose = require("mongoose");
 const { unlinkFile } = require("../utils/fileUtils");
@@ -21,14 +27,85 @@ exports.addResource = async (payload) => {
   return await new Resource(payload).save();
 };
 
+exports.addMultipleResource = async (payloads) => {
+  return await Resource.insertMany(payloads);
+};
+
 //@desc     Delete Resource
 //@route    DELETE /api/v1/resource/:id
 //@access   Private
-exports.deleteResource = async (id) => {
-  await TemporaryUrl.findOneAndDelete({
-    resource: mongoose.Types.ObjectId(id),
-  });
-  return await Resource.findOneAndDelete({ _id: mongoose.Types.ObjectId(id) });
+exports.deleteResource = async (userId, id) => {
+  try {
+    //1st remove from cloud storage successfully then
+    let resource = await Resource.findOne({ _id: mongoose.Types.ObjectId(id) });
+
+    let cloudCreds = await await CloudCredential.findOne({
+      user: mongoose.Types.ObjectId(userId),
+      cloudProvider: mongoose.Types.ObjectId(resource.cloudProvider),
+    }).populate("cloudProvider");
+
+    cloudCreds = {
+      ...cloudCreds._doc,
+      access_credential: getDecryptedData(cloudCreds),
+    };
+
+    if (
+      cloudCreds &&
+      cloudCreds.cloudProvider.name === "Aws" &&
+      cloudCreds.cloudProvider.serviceName === "s3"
+    ) {
+      const result = await deleteFileFromS3(
+        resource.fileKey,
+        cloudCreds.access_credential
+      );
+      if (!result)
+        throw new Error(
+          "Server Issue while deleting file from Cloud. Try again later"
+        );
+    }
+    if (
+      cloudCreds &&
+      cloudCreds.cloudProvider.name === "Azure" &&
+      cloudCreds.cloudProvider.serviceName === "blob-storage"
+    ) {
+      let result = await deleteDocumentFromAzure(
+        resource.fileKey,
+        cloudCreds.access_credential
+      );
+      if (!result)
+        throw new Error(
+          "Server Issue while deleting file from Cloud. Try again later"
+        );
+    }
+    if (
+      cloudCreds &&
+      cloudCreds.cloudProvider.name === "Google" &&
+      cloudCreds.cloudProvider.serviceName === "gcs"
+    ) {
+      let result = await deleteFromGCS(
+        resource.fileKey,
+        cloudCreds.access_credential
+      );
+      if (!result)
+        throw new Error(
+          "Server Issue while deleting file from Cloud. Try again later"
+        );
+    }
+
+    //remove temporary url linked to resource
+    await TemporaryUrl.findOneAndDelete({
+      resource: mongoose.Types.ObjectId(id),
+    });
+    // then remove the resource entry from db
+    return await Resource.findOneAndDelete({
+      _id: mongoose.Types.ObjectId(id),
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: "Please check your cloud credentials or try again later",
+    });
+  }
 };
 
 //@desc     Get Resources
@@ -64,11 +141,16 @@ exports.getResource = async (id) => {
 
 exports.uploadFileToCloud = async (req, res, next) => {
   try {
-    // 1. first get the cloud provider crediential and provider info
-    let cloudCreds = await CloudCrediential.findOne({
+    // 1. first get the cloud provider credential and provider info
+    let cloudCreds = await CloudCredential.findOne({
       user: mongoose.Types.ObjectId(req.user.id),
       cloudProvider: mongoose.Types.ObjectId(req.body.cloud_provider_id),
     }).populate("cloudProvider");
+
+    cloudCreds = {
+      ...cloudCreds._doc,
+      access_credential: getDecryptedData(cloudCreds),
+    };
 
     // 2. call upload to specific provider with upload function and return required result
     if (
@@ -78,7 +160,7 @@ exports.uploadFileToCloud = async (req, res, next) => {
     ) {
       const result = await uploadFileToS3(
         req.file,
-        cloudCreds.access_crediential
+        cloudCreds.access_credential
       );
       if (!result)
         throw new Error(
@@ -99,7 +181,7 @@ exports.uploadFileToCloud = async (req, res, next) => {
     ) {
       let result = await uploadDocumentToAzure(
         req.file,
-        cloudCreds.access_crediential
+        cloudCreds.access_credential
       );
       if (!result)
         throw new Error(
@@ -118,7 +200,7 @@ exports.uploadFileToCloud = async (req, res, next) => {
       cloudCreds.cloudProvider.name === "Google" &&
       cloudCreds.cloudProvider.serviceName === "gcs"
     ) {
-      let result = await uploadToGCS(req.file, cloudCreds.access_crediential);
+      let result = await uploadToGCS(req.file, cloudCreds.access_credential);
       if (!result)
         throw new Error(
           "Server Issue while uploading file to Cloud. Try again later"
@@ -134,14 +216,105 @@ exports.uploadFileToCloud = async (req, res, next) => {
     }
     next();
   } catch (error) {
-    console.log(error);
-    res.json({
-      status: 500,
-      error: "Please check your cloud credientials or try again later",
+    return res.status(400).json({
+      success: false,
+      message: "Please check your cloud credentials or try again later",
     });
-    return;
   } finally {
     await unlinkFile(req.file.path);
+  }
+};
+
+exports.uploadMultipleFileToCloud = async (req, res, next) => {
+  try {
+    // 1. first get the cloud provider credential and provider info
+    let cloudCreds = await CloudCredential.findOne({
+      user: mongoose.Types.ObjectId(req.user.id),
+      cloudProvider: mongoose.Types.ObjectId(req.body.cloud_provider_id),
+    }).populate("cloudProvider");
+
+    cloudCreds = {
+      ...cloudCreds._doc,
+      access_credential: getDecryptedData(cloudCreds),
+    };
+
+    // 2. call upload to specific provider with upload function and return required result
+    if (
+      cloudCreds &&
+      cloudCreds.cloudProvider.name === "Aws" &&
+      cloudCreds.cloudProvider.serviceName === "s3"
+    ) {
+      req.payloads = [];
+      for (const file of req.files) {
+        const result = await uploadFileToS3(file, cloudCreds.access_credential);
+        if (!result)
+          throw new Error(
+            "Server Issue while uploading file to Cloud. Try again later"
+          );
+        req.payloads.push({
+          fileName: file.originalname,
+          fileKey: result.key,
+          fileSizeInByte: file.size,
+          user: req.user.id,
+          cloudProvider: req.body.cloud_provider_id,
+        });
+      }
+    }
+    if (
+      cloudCreds &&
+      cloudCreds.cloudProvider.name === "Azure" &&
+      cloudCreds.cloudProvider.serviceName === "blob-storage"
+    ) {
+      req.payloads = [];
+      for (const file of req.files) {
+        const result = await uploadDocumentToAzure(
+          file,
+          cloudCreds.access_credential
+        );
+        if (!result)
+          throw new Error(
+            "Server Issue while uploading file to Cloud. Try again later"
+          );
+        req.payloads.push({
+          fileName: file.originalname,
+          fileKey: result.key,
+          fileSizeInByte: file.size,
+          user: req.user.id,
+          cloudProvider: req.body.cloud_provider_id,
+        });
+      }
+    }
+    if (
+      cloudCreds &&
+      cloudCreds.cloudProvider.name === "Google" &&
+      cloudCreds.cloudProvider.serviceName === "gcs"
+    ) {
+      req.payloads = [];
+      for (const file of req.files) {
+        const result = await uploadToGCS(file, cloudCreds.access_credential);
+        if (!result)
+          throw new Error(
+            "Server Issue while uploading file to Cloud. Try again later"
+          );
+        req.payloads.push({
+          fileName: file.originalname,
+          fileKey: result.key,
+          fileSizeInByte: file.size,
+          user: req.user.id,
+          cloudProvider: req.body.cloud_provider_id,
+        });
+      }
+    }
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: "Please check your cloud credentials or try again later",
+    });
+  } finally {
+    for (const file of req.files) {
+      await unlinkFile(file.path);
+    }
   }
 };
 
@@ -151,16 +324,24 @@ exports.downloadResource = async (fileKey) => {
       "cloudProvider"
     );
     if (!resource) {
-      return res.json({ status: 404, error: "Resource Not Found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Resource Not Found" });
     }
 
-    let crediential = await CloudCrediential.findOne({
+    let credential = await CloudCredential.findOne({
       user: mongoose.Types.ObjectId(resource.user),
       cloudProvider: mongoose.Types.ObjectId(resource.cloudProvider._id),
     });
+    credential = {
+      ...credential._doc,
+      access_credential: getDecryptedData(credential),
+    };
 
-    if (!crediential) {
-      return res.json({ status: 404, error: "Cloud Crediential Not Found" });
+    if (!credential) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Cloud Credential Not Found" });
     }
 
     if (
@@ -170,7 +351,7 @@ exports.downloadResource = async (fileKey) => {
     ) {
       const readStream = await downloadFileFromS3(
         fileKey,
-        crediential.access_crediential
+        credential.access_credential
       );
       if (!readStream) throw new Error();
       return { readStream, fileName: resource.fileName };
@@ -182,7 +363,7 @@ exports.downloadResource = async (fileKey) => {
     ) {
       const readStream = await downloadDocumentFromAzure(
         fileKey,
-        crediential.access_crediential
+        credential.access_credential
       );
       if (!readStream) throw new Error();
       return { readStream, fileName: resource.fileName };
@@ -194,7 +375,7 @@ exports.downloadResource = async (fileKey) => {
     ) {
       const readStream = await downloadFromGCS(
         fileKey,
-        crediential.access_crediential
+        credential.access_credential
       );
       if (!readStream) throw new Error();
       return { readStream, fileName: resource.fileName };

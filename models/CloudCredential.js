@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const cloudCredientialSchema = mongoose.Schema({
+const cloudCredentialSchema = mongoose.Schema({
   user: {
     type: mongoose.Schema.ObjectId,
     ref: "User",
@@ -9,9 +9,9 @@ const cloudCredientialSchema = mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: "CloudProvider",
   },
-  access_crediential :{
-    type: {}, // store all key: val in encrypted format
-    required: [true, "Please add a credientials info"]
+  access_credential: {
+    type: String,
+    required: [true, "Please add a credentials info"],
   },
   createdAt: {
     type: Date,
@@ -23,4 +23,4 @@ const cloudCredientialSchema = mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("CloudCrediential", cloudCredientialSchema);
+module.exports = mongoose.model("CloudCredential", cloudCredentialSchema);

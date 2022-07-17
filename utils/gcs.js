@@ -11,19 +11,19 @@ const { unlinkFile } = require("./fileUtils");
  * @param {Function} next
  * @return {*}
  */
-exports.uploadToGCS = async (file, crediential) => {
+exports.uploadToGCS = async (file, credential) => {
   const keysFilePath = path.join(
     __dirname,
-    `./google-keys/keys_${crediential.GCS_PROJECT_ID}.json`
+    `./google-keys/keys_${credential.GCS_PROJECT_ID}.json`
   );
-  let data = JSON.stringify(crediential.GCS_KEYS_JSON);
+  let data = JSON.stringify(credential.GCS_KEYS_JSON);
   fs.writeFileSync(keysFilePath, data);
   const gcsStorage = new Storage({
     keyFilename: keysFilePath,
-    projectId: crediential.GCS_PROJECT_ID,
+    projectId: credential.GCS_PROJECT_ID,
   });
 
-  const bucket = gcsStorage.bucket(crediential.GCS_BUCKET_NAME);
+  const bucket = gcsStorage.bucket(credential.GCS_BUCKET_NAME);
   const uploadedFile = bucket.file(file.filename);
   try {
     await bucket.upload(file.path, {});
@@ -37,20 +37,45 @@ exports.uploadToGCS = async (file, crediential) => {
   }
 };
 
-exports.downloadFromGCS = async (fileKey, crediential) => {
+exports.downloadFromGCS = async (fileKey, credential) => {
   try {
     const keysFilePath = path.join(
       __dirname,
-      `./google-keys/keys_${crediential.GCS_PROJECT_ID}.json`
+      `./google-keys/keys_${credential.GCS_PROJECT_ID}.json`
     );
+    let data = JSON.stringify(credential.GCS_KEYS_JSON);
+    fs.writeFileSync(keysFilePath, data);
     const gcsStorage = new Storage({
       keyFilename: keysFilePath,
-      projectId: process.env.GCS_PROJECT_ID,
+      projectId: credential.GCS_PROJECT_ID,
     });
-    const bucket = gcsStorage.bucket(process.env.GCS_BUCKET_NAME);
+    const bucket = gcsStorage.bucket(credential.GCS_BUCKET_NAME);
     return bucket.file(fileKey).createReadStream();
   } catch (error) {
     return null;
+  } finally {
+    await unlinkFile(keysFilePath);
+  }
+};
+
+exports.deleteFromGCS = async (fileKey, credential) => {
+  try {
+    const keysFilePath = path.join(
+      __dirname,
+      `./google-keys/keys_${credential.GCS_PROJECT_ID}.json`
+    );
+    let data = JSON.stringify(credential.GCS_KEYS_JSON);
+    fs.writeFileSync(keysFilePath, data);
+    const gcsStorage = new Storage({
+      keyFilename: keysFilePath,
+      projectId: credential.GCS_PROJECT_ID,
+    });
+    const bucket = gcsStorage.bucket(credential.GCS_BUCKET_NAME);
+    await bucket.file(fileKey).delete();
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
   } finally {
     await unlinkFile(keysFilePath);
   }

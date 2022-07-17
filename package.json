@@ -15,6 +15,7 @@
     "body-parser": "^1.20.0",
     "colors": "^1.4.0",
     "cors": "^2.8.5",
+    "cryptr": "^6.0.3",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "express-rate-limit": "^6.4.0",
@@ -34,5 +35,10 @@
   },
   "engine": {
     "node": "10.17.*"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "*.json"
+    ]
   }
 }

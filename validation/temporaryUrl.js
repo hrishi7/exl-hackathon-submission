@@ -1,15 +1,17 @@
 const TemporaryUrl = require("../models/TemporaryUrl");
 exports.validateCreateTemporaryUrl = async (req, res, next) => {
   if (!req.user) {
-    return res.json({ status: 400, message: "User not found" });
+    return res.status(401).json({ success: false, message: "User not found" });
   }
   if (!req.body.resource_id) {
-    return res.json({ status: 400, message: "resource_id is required" });
+    return res
+      .status(400)
+      .json({ success: false, message: "resource_id is required" });
   }
 
   if (!this.validUser(req.params.id, req.user.id)) {
-    return res.json({
-      status: 404,
+    return res.status(401).json({
+      success: false,
       message: "You are Not Authorized to Update",
     });
   }
@@ -18,11 +20,11 @@ exports.validateCreateTemporaryUrl = async (req, res, next) => {
 
 exports.validateUpdateTemporaryUrl = async (req, res, next) => {
   if (!req.params.id) {
-    return res.json({ status: 400, message: "id is required" });
+    return res.status(400).json({ success: false, message: "id is required" });
   }
   if (!this.validUser(req.params.id, req.user.id)) {
-    return res.json({
-      status: 404,
+    return res.status(401).json({
+      success: false,
       message: "You are Not Authorized to Update",
     });
   }

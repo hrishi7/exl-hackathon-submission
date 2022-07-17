@@ -13,16 +13,11 @@ exports.protect = asyncHandler(async (req, res, next) => {
     token = req.headers.authorization.split(" ")[1];
   }
 
-  //set token from cookie
-  // else if(req.cookies.token){
-  //     token = req.cookies.token;
-  // }
-
   //Make sure token exists
   if (!token) {
-    return res.json({
+    return res.status(401).json({
+      success: false,
       message: "Not authorize to access this route",
-      status: 401,
     });
   }
   try {
@@ -33,9 +28,9 @@ exports.protect = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
-    return res.json({
+    return res.status(401).json({
+      success: false,
       message: "Not authorize to access this route",
-      status: 401,
     });
   }
 });
@@ -50,10 +45,10 @@ exports.checkQueryToken = asyncHandler(async (req, res, next) => {
 
   //Make sure token exists
   if (!token) {
-    return res.json({
+    return res.status(401).json({
+      success: false,
       message:
         "Not authorize to access this route. Please make sure to pass auth-token as query parameter",
-      status: 401,
     });
   }
   try {
@@ -64,9 +59,9 @@ exports.checkQueryToken = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
-    return res.json({
+    return res.status(401).json({
+      success: false,
       message: "Not authorize to access this route",
-      status: 401,
     });
   }
 });

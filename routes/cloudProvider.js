@@ -11,35 +11,39 @@ const router = express.Router();
 router.post("/", async (req, res) => {
   try {
     await addProviders();
-    res.json({
-      status: 200,
+    res.status(201).json({
+      success: true,
       message: "Basic 3 Providers added",
     });
   } catch (error) {
-    res.json({ status: 500, error: "server error" });
+    res.status(500).json({ success: false, message: "server error" });
   }
 });
 
 router.get("/", async (req, res) => {
   try {
     let providers = await getSupportedProviders();
-    res.json({ status: 200, data: providers, message: "Got Providers list" });
+    res
+      .status(200)
+      .json({ success: true, data: providers, message: "Got Providers list" });
   } catch (error) {
-    res.json({ status: 500, error: "server error" });
+    res.status(500).json({ success: false, message: "server error" });
   }
 });
 
 router.get("/:id", async (req, res) => {
   try {
     if (!req.params.id) {
-      res.json({ status: 400, message: "Please provide id" });
+      res.status(400).json({ success: false, message: "Please provide id" });
       return;
     }
     let providers = await getProvider(req.params.id);
-    res.json({ status: 200, data: providers, message: "Got Provider" });
+    res
+      .status(200)
+      .json({ success: true, data: providers, message: "Got Provider" });
   } catch (error) {
     console.log(error);
-    res.json({ status: 500, error: "server error" });
+    res.status(500).json({ success: false, message: "server error" });
   }
 });
 

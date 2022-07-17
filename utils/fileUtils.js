@@ -38,3 +38,34 @@ exports.compressFile = async (req, res, next) => {
     next();
   }
 };
+
+exports.compressMultipleFile = async (req, res, next) => {
+  try {
+    var files = [];
+    var fileKeys = Object.keys(req.files);
+
+    fileKeys.forEach(function (key) {
+      files.push(req.files[key]);
+    });
+
+    let finalFiles = [];
+    for (const file of files) {
+      const destination = `../compressed/${file.filename}`;
+      const buffer = fs.readFileSync(file.path);
+      let response = zlib.gzipSync(buffer);
+      fs.appendFileSync(path.join(__dirname, destination), response);
+      await this.unlinkFile(file.path);
+      finalFiles.push({
+        ...file,
+        path: `compressed/${file.filename}`,
+        size: Buffer.byteLength(response),
+      });
+    }
+    req.files = finalFiles;
+    next();
+  } catch (error) {
+    console.log(error);
+    // if somhow compression failed then upload original one
+    next();
+  }
+};

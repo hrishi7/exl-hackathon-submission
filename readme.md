@@ -9,6 +9,7 @@ $ npm install -g yarn
 Rename config file inside config folder from config.sample.env to config.env and
 
 - MONGO_URI
+- API_SERVER_ENDPOINT
 - JWT_SECRET
 
 Install project dependecies

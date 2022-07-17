@@ -20,7 +20,7 @@ colors.enable();
 const auth = require("./routes/auth");
 const resource = require("./routes/resource");
 const cloudProvider = require("./routes/cloudProvider");
-const cloudCrediential = require("./routes/cloudCrediential");
+const cloudCredential = require("./routes/cloudCredential");
 const temporaryUrl = require("./routes/temporaryUrl");
 
 //connect to database
@@ -53,8 +53,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 app.use("/api/v1/health-check", (req, res) =>
-  res.json({
-    status: 200,
+  res.status(200).json({
     message: "Health OK",
     apiDocUrl: process.env.API_DOC_URL,
   })
@@ -64,14 +63,13 @@ app.use("/api/v1/health-check", (req, res) =>
 app.use("/api/v1/auth", auth);
 app.use("/api/v1/resource", resource);
 app.use("/api/v1/cloud-provider", cloudProvider);
-app.use("/api/v1/cloud-crediential", cloudCrediential);
+app.use("/api/v1/cloud-credential", cloudCredential);
 app.use("/api/v1/temporary-url", temporaryUrl);
 
 app.use("/*", (req, res) => {
-  res.json({
-    status: 200,
-    message: `Its a REST API service to upload file into different cloud providers as you want. 
-    please checkout out API doc ${process.env.API_DOC_URL}`,
+  res.status(200).json({
+    message: `Route Not found`,
+    apiDocUrl: process.env.API_DOC_URL,
   });
 });
 
